@@ -160,11 +160,11 @@ export default function AvailabilityForm({
   };
 
   return (
-    <div id="availability-form-section" className="bg-white rounded-xl p-5 border border-zinc-200 shadow-xs">
+    <div id="availability-form-section" className="bg-white rounded-xl p-5 border border-rosaviejo-border shadow-xs">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="font-display font-bold text-base text-zinc-900 tracking-tight flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-zinc-500" />
+          <h2 className="font-display font-bold text-base text-rosaviejo-dark tracking-tight flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-rosaviejo" />
             Cargar Preferencias
           </h2>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -183,7 +183,7 @@ export default function AvailabilityForm({
         
         {/* Step 1: Weekly availability blocks */}
         <div>
-          <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 font-mono">
+          <label className="block text-[10px] font-bold text-rosaviejo uppercase tracking-wider mb-2 font-mono">
             1. Disponibilidad Semanal (Lunes a Domingo)
           </label>
           
@@ -266,8 +266,8 @@ export default function AvailabilityForm({
           
           {/* Horario preferido */}
           <div>
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 font-mono">
-              2. Horario Preferido <span className="text-zinc-400 font-normal">(Opcional)</span>
+            <label className="block text-[10px] font-bold text-rosaviejo uppercase tracking-wider mb-2 font-mono">
+              2. Horario Preferido <span className="text-zinc-405 font-normal">(Opcional)</span>
             </label>
             <div className="grid grid-cols-3 gap-2">
               {PREFERRED_TIMES.map((time) => {
@@ -298,8 +298,8 @@ export default function AvailabilityForm({
 
           {/* Tipo de plan */}
           <div>
-            <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-2 font-mono">
-              3. Tipo de Plan <span className="text-zinc-400 font-normal">(Opcional)</span>
+            <label className="block text-[10px] font-bold text-rosaviejo uppercase tracking-wider mb-2 font-mono">
+              3. Tipo de Plan <span className="text-zinc-405 font-normal">(Opcional)</span>
             </label>
             <div className="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-3 gap-1.5">
               {PLAN_TYPES.map((plan) => {
@@ -353,7 +353,7 @@ export default function AvailabilityForm({
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
               <DollarSign className="w-4 h-4 text-zinc-500" />
-              <label htmlFor="budget-slider" className="text-[10px] font-bold text-zinc-550 uppercase tracking-wider font-mono">
+              <label htmlFor="budget-slider" className="text-[10px] font-bold text-rosaviejo uppercase tracking-wider font-mono">
                 4. Presupuesto Máximo Disponible
               </label>
             </div>
@@ -374,7 +374,7 @@ export default function AvailabilityForm({
                 setBudget(Number(e.target.value));
                 setValidationError(null);
                }}
-              className="flex-1 accent-zinc-900 cursor-pointer h-1.5 bg-zinc-200 rounded-lg appearance-none"
+              className="flex-1 accent-rosaviejo cursor-pointer h-1.5 bg-zinc-200 rounded-lg appearance-none"
             />
             <div className="flex items-center justify-center font-display font-extrabold text-sm text-zinc-900 bg-white border border-zinc-300 px-3 py-1 bg-zinc-50 rounded-md min-w-32">
               ${budget.toLocaleString("es-AR")}
@@ -397,7 +397,7 @@ export default function AvailabilityForm({
               w-full sm:w-auto px-5 py-2 rounded-lg font-display font-semibold text-xs tracking-wide shadow-xs flex items-center justify-center gap-2 cursor-pointer
               ${successAnimation 
                 ? "bg-emerald-600 text-white" 
-                : "bg-zinc-900 hover:bg-zinc-800 text-white transition-all hover:shadow-xs hover:-translate-y-px"
+                : "bg-rosaviejo hover:bg-rosaviejo-hover text-white transition-all hover:shadow-xs hover:-translate-y-px"
               }
             `}
           >

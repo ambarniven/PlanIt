@@ -59,10 +59,14 @@ export default function GroupSummary({
     percentage: respondedCount > 0 ? Math.round((count / respondedCount) * 100) : 0
   }));
 
-  // 2. Average Budget
-  const avgBudget = respondedCount > 0
+  // 2. Average Budget (capped to ensure we don't exceed the maximum budget of any single respondent)
+  const rawAvgBudget = respondedCount > 0
     ? Math.round(responses.reduce((sum, r) => sum + r.budget, 0) / respondedCount)
     : 0;
+  const minMaxLimit = respondedCount > 0
+    ? Math.min(...responses.map(r => r.budget))
+    : 0;
+  const avgBudget = Math.min(rawAvgBudget, minMaxLimit);
 
   // 3. Preferred Time
   const timeCounts: Record<string, number> = {};
@@ -91,10 +95,10 @@ export default function GroupSummary({
       <section className="grid grid-cols-2 md:grid-cols-5 gap-3">
         
         {/* Stat 1: Members/Contador */}
-        <div className="bg-zinc-50 p-3.5 rounded-xl border border-zinc-200 shadow-xs flex flex-col justify-between transition-all hover:bg-zinc-100/50">
+        <div className="bg-zinc-50 p-3.5 rounded-xl border border-rosaviejo-border shadow-3xs flex flex-col justify-between transition-all hover:bg-zinc-100/50 hover:border-rosaviejo">
           <div>
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1 font-mono">
-              <Users className="w-3 h-3 text-zinc-400" />
+              <Users className="w-3 h-3 text-rosaviejo" />
               Respuestas
             </p>
             <p className="text-xl font-bold text-zinc-900 font-display">
@@ -107,10 +111,10 @@ export default function GroupSummary({
         </div>
 
         {/* Stat 2: Popular day */}
-        <div className="bg-zinc-50 p-3.5 rounded-xl border border-zinc-200 shadow-xs flex flex-col justify-between transition-all hover:bg-zinc-100/50">
+        <div className="bg-zinc-50 p-3.5 rounded-xl border border-rosaviejo-border shadow-3xs flex flex-col justify-between transition-all hover:bg-zinc-100/50 hover:border-rosaviejo">
           <div>
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1 font-mono">
-              <Calendar className="w-3 h-3 text-zinc-400" />
+              <Calendar className="w-3 h-3 text-rosaviejo" />
               Mejor Día
             </p>
             <p className="text-base font-bold text-zinc-900 font-display truncate" title={topDays[0]?.day || "Pendiente"}>
@@ -123,26 +127,26 @@ export default function GroupSummary({
         </div>
 
         {/* Stat 3: Average budget */}
-        <div className="bg-zinc-50 p-3.5 rounded-xl border border-zinc-200 shadow-xs flex flex-col justify-between transition-all hover:bg-zinc-100/50">
+        <div className="bg-zinc-50 p-3.5 rounded-xl border border-rosaviejo-border shadow-3xs flex flex-col justify-between transition-all hover:bg-zinc-100/50 hover:border-rosaviejo">
           <div>
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1 font-mono">
-              <DollarSign className="w-3 h-3 text-zinc-400" />
+              <DollarSign className="w-3 h-3 text-rosaviejo" />
               Presupuesto
             </p>
             <p className="text-xl font-bold text-zinc-900 font-display">
               ${avgBudget.toLocaleString("es-AR")} <span className="text-[10px] font-semibold text-zinc-500">ARS</span>
             </p>
           </div>
-          <p className="text-[9px] text-zinc-500 font-medium mt-1">
-            {respondedCount > 0 ? "Presupuesto de consenso" : "No definido"}
+          <p className="text-[9px] text-zinc-500 font-medium mt-1 truncate" title="Calculado sin superar el presupuesto máximo de ningún integrante">
+            {respondedCount > 0 ? "Monto seguro (sin superar a nadie)" : "No definido"}
           </p>
         </div>
 
         {/* Stat 4: Preferred time */}
-        <div className="bg-zinc-50 p-3.5 rounded-xl border border-zinc-200 shadow-xs flex flex-col justify-between transition-all hover:bg-zinc-100/50">
+        <div className="bg-zinc-50 p-3.5 rounded-xl border border-rosaviejo-border shadow-3xs flex flex-col justify-between transition-all hover:bg-zinc-100/50 hover:border-rosaviejo">
           <div>
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1 font-mono">
-              <Clock className="w-3 h-3 text-zinc-400" />
+              <Clock className="w-3 h-3 text-rosaviejo" />
               Horario
             </p>
             <p className="text-base font-bold text-zinc-900 font-display truncate">
@@ -155,10 +159,10 @@ export default function GroupSummary({
         </div>
 
         {/* Stat 5: Activity Type */}
-        <div className="bg-zinc-50 p-3.5 rounded-xl border border-zinc-200 shadow-xs flex flex-col justify-between transition-all hover:bg-zinc-100/50 col-span-2 md:col-span-1">
+        <div className="bg-zinc-50 p-3.5 rounded-xl border border-rosaviejo-border shadow-3xs flex flex-col justify-between transition-all hover:bg-zinc-100/50 hover:border-rosaviejo col-span-2 md:col-span-1">
           <div>
             <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1 font-mono">
-              <Activity className="w-3 h-3 text-zinc-400" />
+              <Activity className="w-3 h-3 text-rosaviejo" />
               Actividad
             </p>
             <p className="text-base font-bold text-zinc-900 font-display truncate">
@@ -172,18 +176,18 @@ export default function GroupSummary({
 
       </section>
 
-      {/* AI Recommendation Card (Sparkles with premium dark aesthetics) */}
-      <section className="bg-zinc-950 p-5 rounded-xl border border-zinc-900 shadow-md relative overflow-hidden group/ia transition-all duration-300">
-        <div className="absolute -right-4 -top-4 w-32 h-32 bg-zinc-800 rounded-full blur-2xl opacity-20 group-hover/ia:opacity-30 transition-opacity"></div>
+      {/* AI Recommendation Card (Sparkles with premium rose aesthetics) */}
+      <section className="bg-rosaviejo-light p-5 rounded-xl border border-rosaviejo shadow-xs relative overflow-hidden group/ia transition-all duration-300">
+        <div className="absolute -right-4 -top-4 w-32 h-32 bg-rosaviejo/10 rounded-full blur-2xl opacity-20 group-hover/ia:opacity-30 transition-opacity"></div>
         
         <div className="flex items-start gap-4">
-          <div className="w-10 h-10 bg-zinc-900 border border-zinc-800 text-zinc-100 rounded-xl flex items-center justify-center text-xl relative shrink-0">
-            <Sparkles className="w-5 h-5 text-zinc-300 animate-pulse" />
+          <div className="w-10 h-10 bg-white border border-rosaviejo-border text-rosaviejo rounded-xl flex items-center justify-center text-xl relative shrink-0">
+            <Sparkles className="w-5 h-5 text-rosaviejo animate-pulse" />
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2 mb-1.5">
-              <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest flex items-center gap-1.5 font-mono">
+              <h3 className="text-[10px] font-bold text-rosaviejo-dark uppercase tracking-widest flex items-center gap-1.5 font-mono">
                 Propuesta inteligente • PlanIt AI
               </h3>
               
@@ -191,27 +195,27 @@ export default function GroupSummary({
                 onClick={onRefreshRecommendation}
                 disabled={isLoadingRecommendation || respondedCount === 0}
                 className={`
-                  p-1 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900 rounded-md transition-all flex items-center gap-1 text-[10px] font-semibold cursor-pointer
+                  p-1 text-rosaviejo hover:text-rosaviejo-dark hover:bg-white/60 rounded-md transition-all flex items-center gap-1 text-[10px] font-semibold cursor-pointer
                   disabled:opacity-40 disabled:hover:bg-transparent
                 `}
                 title="Actualizar Recomendación"
               >
-                <RefreshCw className={`w-3 h-3 ${isLoadingRecommendation ? "animate-spin text-zinc-200" : ""}`} />
+                <RefreshCw className={`w-3 h-3 ${isLoadingRecommendation ? "animate-spin text-rosaviejo" : ""}`} />
                 <span>Re-analizar</span>
               </button>
             </div>
 
             {isLoadingRecommendation ? (
               <div className="space-y-2 py-1 animate-pulse">
-                <div className="h-3 bg-zinc-800 rounded-md w-11/12"></div>
-                <div className="h-3 bg-zinc-800 rounded-md w-6/12"></div>
+                <div className="h-3 bg-rosaviejo-border/40 rounded-md w-11/12"></div>
+                <div className="h-3 bg-rosaviejo-border/40 rounded-md w-6/12"></div>
               </div>
             ) : respondedCount === 0 ? (
-              <p className="text-xs text-zinc-500 italic">
+              <p className="text-xs text-rosaviejo-dark/75 italic">
                 “¡Aún no hay respuestas! Completa tus preferencias en el formulario web para que el Coordinador IA diseñe opciones óptimas con sugerencias de lugares específicos de tu zona/provincia en tiempo real.”
               </p>
             ) : (
-              <p className="text-sm md:text-base font-medium text-zinc-150 leading-relaxed italic pr-4 font-sans">
+              <p className="text-sm md:text-base font-semibold text-rosaviejo-dark leading-relaxed italic pr-4 font-sans">
                 "{recommendation}"
               </p>
             )}
@@ -220,13 +224,13 @@ export default function GroupSummary({
       </section>
 
       {/* Expandable detailed response list */}
-      <section className="bg-white rounded-xl border border-zinc-200 overflow-hidden flex flex-col shadow-xs">
+      <section className="bg-white rounded-xl border border-rosaviejo-border overflow-hidden flex flex-col shadow-xs">
         <div 
           onClick={() => setIsResponsesExpanded(!isResponsesExpanded)}
-          className="p-4 border-b border-zinc-150 flex justify-between items-center cursor-pointer select-none hover:bg-zinc-50/50 transition-colors"
+          className="p-4 border-b border-rosaviejo-border flex justify-between items-center cursor-pointer select-none hover:bg-zinc-50/50 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <h4 className="text-xs font-bold text-zinc-800 uppercase tracking-wider font-mono">
+            <h4 className="text-xs font-bold text-rosaviejo-dark uppercase tracking-wider font-mono">
               Respuestas del Grupo ({respondedCount})
             </h4>
             <span className="text-[9px] font-mono font-medium px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-650 border border-zinc-200">

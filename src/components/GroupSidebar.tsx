@@ -10,7 +10,8 @@ import {
   Hash,
   ChevronRight,
   Menu,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 
 interface GroupSidebarProps {
@@ -23,6 +24,7 @@ interface GroupSidebarProps {
   onLogout: () => void;
   showSidebarMobile: boolean;
   setShowSidebarMobile: (show: boolean) => void;
+  onDeleteGroup: (id: string) => void;
 }
 
 export default function GroupSidebar({
@@ -34,7 +36,8 @@ export default function GroupSidebar({
   currentUser,
   onLogout,
   showSidebarMobile,
-  setShowSidebarMobile
+  setShowSidebarMobile,
+  onDeleteGroup
 }: GroupSidebarProps) {
   const [newGroupName, setNewGroupName] = useState("");
   const [joinCode, setJoinCode] = useState("");
@@ -43,6 +46,7 @@ export default function GroupSidebar({
   const [isJoining, setIsJoining] = useState(false);
   const [errorText, setErrorText] = useState<string | null>(null);
   const [successText, setSuccessText] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
@@ -246,7 +250,7 @@ export default function GroupSidebar({
         {/* Group list */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            <span className="text-xs font-bold uppercase tracking-wider text-rosaviejo">
               Mis Grupos ({groups.length})
             </span>
           </div>
@@ -271,18 +275,61 @@ export default function GroupSidebar({
                     setShowSidebarMobile(false);
                   }}
                   className={`
-                    w-full text-left p-3.5 rounded-xl border transition-all duration-200 cursor-pointer group/item
+                    relative w-full text-left p-3.5 rounded-xl border transition-all duration-200 cursor-pointer group/item
                     ${isActive 
                       ? "bg-zinc-100 border-zinc-300 text-zinc-900 font-semibold" 
                       : "bg-white border-zinc-100 hover:border-zinc-200 text-zinc-650 hover:bg-zinc-50/50"
                     }
                   `}
                 >
+                  {/* Inline delete confirmation box overlay */}
+                  {confirmDeleteId === group.id && (
+                    <div 
+                      className="absolute inset-0 bg-red-50/95 flex items-center justify-between px-3 rounded-xl border border-red-200 z-10"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <span className="text-[10px] font-bold text-red-700">¿Eliminar este grupo?</span>
+                      <div className="flex gap-1.5">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteGroup(group.id);
+                            setConfirmDeleteId(null);
+                          }}
+                          className="bg-red-650 hover:bg-red-700 text-white text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors"
+                        >
+                          Sí
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmDeleteId(null);
+                          }}
+                          className="bg-zinc-200 hover:bg-zinc-350 text-zinc-750 text-[10px] font-bold px-2 py-1 rounded cursor-pointer transition-colors"
+                        >
+                          No
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="flex items-start justify-between gap-1 mb-1.5">
                     <span className="font-semibold text-sm break-words line-clamp-1 flex-1">
                       {group.name}
                     </span>
-                    <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${isActive ? "text-zinc-800 translate-x-1" : "text-zinc-300 group-hover/item:translate-x-1"}`} />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setConfirmDeleteId(group.id);
+                        }}
+                        className="opacity-40 group-hover/item:opacity-100 p-1 text-zinc-400 hover:text-red-500 hover:bg-red-50 rounded transition-all cursor-pointer"
+                        title="Eliminar Grupo"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${isActive ? "text-zinc-800 translate-x-1" : "text-zinc-300 group-hover/item:translate-x-1"}`} />
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-[11px]">
@@ -312,13 +359,7 @@ export default function GroupSidebar({
           )}
         </div>
 
-        {/* Hint Tip at Bottom */}
-        <div className="p-4 border-t border-slate-100 text-[11px] text-slate-400 bg-slate-50/30">
-          <p className="font-semibold text-slate-500 mb-1">💡 Tip para la Demo:</p>
-          <p className="leading-relaxed">
-            Puedes simular que tus amigos se unen abriendo la app en otra pestaña, o cerrando sesión aquí para entrar con otro nombre y pegar el código.
-          </p>
-        </div>
+
       </aside>
     </>
   );

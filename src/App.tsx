@@ -34,7 +34,12 @@ export default function App() {
     const stored = localStorage.getItem("planit_groups");
     if (stored) {
       try {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          // Exclude pre-created groups to keep state perfectly pristine
+          return parsed.filter(g => g.id !== "group-viernes-cine" && g.id !== "group-picnic-montana");
+        }
+        return INITIAL_GROUPS;
       } catch (e) {
         return INITIAL_GROUPS;
       }
@@ -44,7 +49,7 @@ export default function App() {
 
   const [activeGroupId, setActiveGroupId] = useState<string | null>(() => {
     const lastActive = localStorage.getItem("planit_last_active_group_id");
-    if (lastActive) return lastActive;
+    if (lastActive && lastActive !== "group-viernes-cine" && lastActive !== "group-picnic-montana") return lastActive;
     return INITIAL_GROUPS[0]?.id || null;
   });
 
@@ -126,8 +131,10 @@ export default function App() {
         .slice(0, 3)
         .map(([day]) => day);
 
-      // Avg budget
-      const avgBudget = Math.round(responses.reduce((sum, r) => sum + r.budget, 0) / respondedCount);
+      // Capped budget: average capped by the maximum of any single respondent to keep it accessible to all
+      const rawAvg = Math.round(responses.reduce((sum, r) => sum + r.budget, 0) / respondedCount);
+      const minMaxLimit = Math.min(...responses.map(r => r.budget));
+      const avgBudget = Math.min(rawAvg, minMaxLimit);
 
       // Time counts
       const timeCounts: Record<string, number> = {};
@@ -243,6 +250,16 @@ export default function App() {
     setActiveGroupId(newGroup.id);
   };
 
+  const handleDeleteGroup = (id: string) => {
+    setGroups(prev => {
+      const filtered = prev.filter(g => g.id !== id);
+      if (activeGroupId === id) {
+        setActiveGroupId(filtered[0]?.id || null);
+      }
+      return filtered;
+    });
+  };
+
   const handleJoinByCode = (code: string): string | null => {
     if (!currentUser) return "Inicia sesión primero.";
 
@@ -332,13 +349,13 @@ export default function App() {
 
           <div className="relative w-full max-w-4xl grid grid-cols-1 md:grid-cols-12 bg-white border border-zinc-200 shadow-xl rounded-2xl overflow-hidden">
             
-            {/* Promo illustration & features column (Left 5 cols) - Premium Dark Mode Accent */}
-            <div className="md:col-span-5 bg-zinc-950 p-8 md:p-10 text-white flex flex-col justify-between relative overflow-hidden">
+            {/* Promo illustration & features column (Left 5 cols) - Elegant Old Rose Theme Accent */}
+            <div className="md:col-span-5 bg-rosaviejo-dark p-8 md:p-10 text-white flex flex-col justify-between relative overflow-hidden">
               <div className="absolute inset-0 bg-white/5 mix-blend-overlay"></div>
               
               <div className="relative space-y-6">
                 <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-white text-zinc-950 rounded-lg flex items-center justify-center font-bold text-lg shadow-xs animate-pulse">
+                  <div className="w-8 h-8 bg-white text-rosaviejo-dark rounded-lg flex items-center justify-center font-bold text-lg shadow-xs">
                     P
                   </div>
                   <h1 className="text-xl font-extrabold tracking-tight font-display">PlanIt</h1>
@@ -346,29 +363,29 @@ export default function App() {
 
                 <div className="space-y-3 pt-2">
                   <h2 className="text-2xl md:text-3xl font-bold tracking-tight leading-snug font-display">
-                    Organiza salidas grupales sin rodeos.
+                    Organiza tu plan ideal con tus amigos
                   </h2>
-                  <p className="text-xs text-zinc-400 leading-relaxed font-sans">
+                  <p className="text-xs text-rosaviejo-light/90 leading-relaxed font-sans">
                     Sincroniza agendas de la semana, alinea presupuestos en pesos y sugiere planes con un solo click. Simple, rápido y estético.
                   </p>
                 </div>
               </div>
 
               {/* Static decorative mockup states to elevate aesthetic credibility */}
-              <div className="mt-6 space-y-2.5 relative p-4 bg-zinc-900 border border-zinc-800 rounded-xl">
-                <p className="text-[10px] font-bold tracking-widest text-zinc-500 uppercase">Recomendaciones Inteligentes</p>
+              <div className="mt-6 space-y-2.5 relative p-4 bg-rosaviejo/40 border border-rosaviejo-border/20 rounded-xl">
+                <p className="text-[10px] font-bold tracking-widest text-rosaviejo-light uppercase">Recomendaciones Inteligentes</p>
                 
-                <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
+                <div className="flex items-center justify-between text-xs font-semibold text-white">
                   <span>🚀 Coordinador IA</span>
-                  <span className="text-[9px] bg-zinc-800 text-zinc-300 font-mono px-1.5 py-0.5 rounded">Activo</span>
+                  <span className="text-[9px] bg-white/20 text-white font-mono px-1.5 py-0.5 rounded">Activo</span>
                 </div>
-                <p className="text-[11px] text-zinc-400 italic">
+                <p className="text-[11px] text-rosaviejo-light/95 italic">
                   "Sugerencia: Una noche de pizza en Güemes (Córdoba) o San Telmo (CABA) que se adapta perfectamente al bolsillo de todos."
                 </p>
               </div>
 
-              <div className="text-[10px] text-zinc-500 pt-4 leading-normal">
-                Seguro e instantáneo • Datos persistidos en <code className="font-mono bg-zinc-900 px-1 py-0.5 rounded text-zinc-300">localStorage</code>
+              <div className="text-[10px] text-rosaviejo-light/70 pt-4 leading-normal">
+                Seguro e instantáneo • Datos persistidos en <code className="font-mono bg-white/10 px-1 py-0.5 rounded text-white">localStorage</code>
               </div>
             </div>
 
@@ -455,7 +472,7 @@ export default function App() {
                   <div>
                     <div className="flex justify-between items-center mb-1 px-1">
                       <label htmlFor="password-input" className="block text-[10px] font-bold text-zinc-600 uppercase tracking-wider">
-                        Contraseña <span className="text-zinc-400 font-normal hover:underline cursor-help" title="Demo mode: Any password is valid">(Demo: Cualquiera sirve)</span>
+                        Contraseña
                       </label>
                     </div>
                     <input
@@ -482,10 +499,7 @@ export default function App() {
                   </button>
                 </form>
 
-                <div className="pt-4 border-t border-slate-100/80 flex items-center gap-2.5 text-center text-xs text-slate-500">
-                  <UserPlus className="w-4 h-4 text-slate-400 shrink-0" />
-                  <span>¿Quieres simular múltiples votos? Luego de entrar, podrás cerrar tu sesión y loguearte con otro nombre pero usando el mismo código de grupo.</span>
-                </div>
+
               </div>
             </div>
 
@@ -506,6 +520,7 @@ export default function App() {
             onLogout={handleLogout}
             showSidebarMobile={showSidebarMobile}
             setShowSidebarMobile={setShowSidebarMobile}
+            onDeleteGroup={handleDeleteGroup}
           />
 
           {/* Main dashboard view container matches Geometric Balance template */}
@@ -528,14 +543,14 @@ export default function App() {
                   >
                     <Menu className="w-4 h-4" />
                   </button>
-                  <h2 className="text-xl md:text-2xl font-bold tracking-tight text-zinc-900 font-display">
+                  <h2 className="text-xl md:text-2xl font-bold tracking-tight text-rosaviejo-dark font-display">
                     {activeGroup ? activeGroup.name : "Crea tu primer grupo"}
                   </h2>
                 </div>
               </div>
 
               {activeGroup && (
-                <div className="flex items-center gap-3 bg-zinc-50 px-3.5 py-2 border border-zinc-200 rounded-xl self-start sm:self-auto">
+                <div className="flex items-center gap-3 bg-zinc-50 px-3.5 py-2 border border-rosaviejo-border rounded-xl self-start sm:self-auto">
                   <div className="text-left shrink-0">
                     <p className="text-[9px] uppercase font-bold text-zinc-400 leading-none">Código de Invitación</p>
                     <p className="text-sm font-mono font-bold text-zinc-800 tracking-wider">
@@ -607,12 +622,9 @@ export default function App() {
       )}
 
       {/* Modern footer overlay details */}
-      <footer className="py-3 px-6 bg-slate-900 text-slate-400 border-t border-slate-800 text-center text-[10px] md:text-sm shrink-0 flex flex-col md:flex-row items-center justify-between gap-2 z-10">
+      <footer className="py-3 px-6 bg-slate-900 text-slate-400 border-t border-slate-800 text-center text-[10px] md:text-sm shrink-0 flex flex-col md:flex-row items-center justify-center gap-2 z-10">
         <p className="font-medium text-slate-300">
           PlanIt App. Coordinador inteligente de actividades grupales con IA.
-        </p>
-        <p className="font-mono text-[10px] text-slate-500">
-          Demo local • Persistido en localStorage • Claude API integrada
         </p>
       </footer>
 

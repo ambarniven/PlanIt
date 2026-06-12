@@ -5,6 +5,11 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Outfit", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-rosaviejo: #b27a7c;
+  --color-rosaviejo-hover: #9c6466;
+  --color-rosaviejo-light: #f6eeee;
+  --color-rosaviejo-border: #e2cecf;
+  --color-rosaviejo-dark: #7a4648;
 }
 
 /* Base style resets and high contrast layout aesthetics */
