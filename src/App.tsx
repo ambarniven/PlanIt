@@ -67,6 +67,81 @@ export default function App() {
     localStorage.setItem("planit_groups", JSON.stringify(groups));
   }, [groups]);
 
+  // Sync groups with the server on first load to retrieve other people's edits & groups
+  useEffect(() => {
+    const syncWithServer = async () => {
+      const localGroups = localStorage.getItem("planit_groups");
+      if (!localGroups) return;
+      try {
+        const parsed = JSON.parse(localGroups);
+        if (!Array.isArray(parsed) || parsed.length === 0) return;
+        const ids = parsed.map((g: Group) => g.id);
+        const res = await fetch("/api/groups/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ids })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.groups && data.groups.length > 0) {
+            setGroups(prev => {
+              const merged = [...prev];
+              data.groups.forEach((srvGroup: Group) => {
+                const idx = merged.findIndex(g => g.id === srvGroup.id);
+                if (idx > -1) {
+                  merged[idx] = srvGroup;
+                } else {
+                  merged.push(srvGroup);
+                }
+              });
+              return merged;
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error syncing with server on load:", err);
+      }
+    };
+    syncWithServer();
+  }, []);
+
+  // Poll current active group periodically to reflect changes from other devices/accounts in real time
+  useEffect(() => {
+    if (!activeGroupId) return;
+    
+    let isMounted = true;
+    const intervalId = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/groups/${activeGroupId}`);
+        if (res.ok && isMounted) {
+          const data = await res.json();
+          if (data.group) {
+            setGroups(prev => {
+              const idx = prev.findIndex(g => g.id === activeGroupId);
+              if (idx > -1) {
+                const prevStr = JSON.stringify(prev[idx]);
+                const srvStr = JSON.stringify(data.group);
+                if (prevStr !== srvStr) {
+                  const updated = [...prev];
+                  updated[idx] = data.group;
+                  return updated;
+                }
+              }
+              return prev;
+            });
+          }
+        }
+      } catch (err) {
+        console.warn("Active group polling error:", err);
+      }
+    }, 4000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+  }, [activeGroupId]);
+
   // Sync user with localStorage
   useEffect(() => {
     if (currentUser) {
@@ -226,7 +301,7 @@ export default function App() {
     // Preserve groups & recommendations in localStorage so other tabs/reloads can see them
   };
 
-  const handleCreateGroup = (name: string) => {
+  const handleCreateGroup = async (name: string) => {
     if (!currentUser) return;
 
     // Generate random 8-character code
@@ -248,9 +323,19 @@ export default function App() {
 
     setGroups(prev => [newGroup, ...prev]);
     setActiveGroupId(newGroup.id);
+
+    try {
+      await fetch("/api/groups", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group: newGroup })
+      });
+    } catch (err) {
+      console.error("Error creating group on server:", err);
+    }
   };
 
-  const handleDeleteGroup = (id: string) => {
+  const handleDeleteGroup = async (id: string) => {
     setGroups(prev => {
       const filtered = prev.filter(g => g.id !== id);
       if (activeGroupId === id) {
@@ -258,55 +343,67 @@ export default function App() {
       }
       return filtered;
     });
+
+    try {
+      await fetch(`/api/groups/${id}`, {
+        method: "DELETE"
+      });
+    } catch (err) {
+      console.error("Error deleting group from server:", err);
+    }
   };
 
-  const handleJoinByCode = (code: string): string | null => {
+  const handleJoinByCode = async (code: string): Promise<string | null> => {
     if (!currentUser) return "Inicia sesión primero.";
 
     const formattedCode = code.trim().toUpperCase();
     if (formattedCode.length !== 8) return "El código debe tener exactamente 8 caracteres.";
 
-    // Find group in lists
-    const groupIndex = groups.findIndex(g => g.code === formattedCode);
-    if (groupIndex === -1) {
-      return "No se encontró ningún grupo con ese código de invitación.";
+    try {
+      const res = await fetch("/api/groups/join", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: formattedCode, userName: currentUser.name })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        return errData.error || "No se encontró ningún grupo con ese código de invitación.";
+      }
+
+      const { group: joinedGroup } = await res.json();
+      
+      // Add or update the local groups state
+      setGroups(prev => {
+        const idx = prev.findIndex(g => g.id === joinedGroup.id);
+        if (idx > -1) {
+          const updated = [...prev];
+          updated[idx] = joinedGroup;
+          return updated;
+        } else {
+          return [joinedGroup, ...prev];
+        }
+      });
+      
+      setActiveGroupId(joinedGroup.id);
+      return null;
+    } catch (err) {
+      console.error("Error joining group by code:", err);
+      return "Ocurrió un error inesperado al unirse al grupo.";
     }
-
-    const targetGroup = groups[groupIndex];
-    
-    // Check if current user name is already a member
-    if (targetGroup.members.includes(currentUser.name)) {
-      setActiveGroupId(targetGroup.id);
-      return null; // already joined, select it
-    }
-
-    // Add user as a member of this group
-    const updatedGroup = {
-      ...targetGroup,
-      members: [...targetGroup.members, currentUser.name]
-    };
-
-    const updatedGroups = [...groups];
-    updatedGroups[groupIndex] = updatedGroup;
-    setGroups(updatedGroups);
-    setActiveGroupId(targetGroup.id);
-
-    return null;
   };
 
-  const handleSaveResponse = (userResponse: ResponseIndividual) => {
+  const handleSaveResponse = async (userResponse: ResponseIndividual) => {
     if (!currentUser || !activeGroup) return;
 
     const groupIndex = groups.findIndex(g => g.id === activeGroup.id);
     if (groupIndex === -1) return;
 
-    // Ensure member is in the members list
+    // Optimistically update the UI locally
     let updatedMembers = [...activeGroup.members];
     if (!updatedMembers.includes(currentUser.name)) {
       updatedMembers.push(currentUser.name);
     }
-
-    // Filter out previous response from same member
     const filteredResponses = activeGroup.responses.filter(r => r.member !== currentUser.name);
     const updatedResponses = [...filteredResponses, userResponse];
 
@@ -320,7 +417,35 @@ export default function App() {
     updatedGroups[groupIndex] = updatedGroup;
     setGroups(updatedGroups);
 
-    // Force re-generating AI recommendations with new responses structure
+    // Persist and register response on server
+    try {
+      const res = await fetch(`/api/groups/${activeGroup.id}/response`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ response: userResponse })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.group) {
+          setGroups(prev => {
+            const idx = prev.findIndex(g => g.id === data.group.id);
+            if (idx > -1) {
+              const updated = [...prev];
+              updated[idx] = data.group;
+              return updated;
+            }
+            return prev;
+          });
+          // Force re-generating AI recommendation from the server-validated group representation
+          fetchAIRecommendation(data.group, true);
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("Error saving response to server:", err);
+    }
+
+    // Fallback trigger if server call failed
     setTimeout(() => {
       fetchAIRecommendation(updatedGroup, true);
     }, 100);
@@ -621,12 +746,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Modern footer overlay details */}
-      <footer className="py-3 px-6 bg-slate-900 text-slate-400 border-t border-slate-800 text-center text-[10px] md:text-sm shrink-0 flex flex-col md:flex-row items-center justify-center gap-2 z-10">
-        <p className="font-medium text-slate-300">
-          PlanIt App. Coordinador inteligente de actividades grupales con IA.
-        </p>
-      </footer>
+
 
     </div>
   );

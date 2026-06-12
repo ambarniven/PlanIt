@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
+import fs from "fs";
 import { GoogleGenAI } from "@google/genai";
 import { createServer as createViteServer } from "vite";
 
@@ -8,6 +9,29 @@ dotenv.config();
 
 const app = express();
 const PORT = 3000;
+
+// Persistent file-based store for group coordination data
+const DB_FILE = path.join(process.cwd(), "groups-db.json");
+
+function readGroupsDb(): any[] {
+  try {
+    if (fs.existsSync(DB_FILE)) {
+      const content = fs.readFileSync(DB_FILE, "utf-8");
+      return JSON.parse(content);
+    }
+  } catch (error) {
+    console.error("Error reading groups db:", error);
+  }
+  return [];
+}
+
+function writeGroupsDb(groups: any[]) {
+  try {
+    fs.writeFileSync(DB_FILE, JSON.stringify(groups, null, 2), "utf-8");
+  } catch (error) {
+    console.error("Error writing groups db:", error);
+  }
+}
 
 // Lazy initialization of the Gemini Client
 function getGeminiClient(): GoogleGenAI | null {
@@ -26,6 +50,139 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 app.use(express.json());
+
+// --- COOPERATIVE GROUPS API ROUTES ---
+
+// Sync local stored groups array with server
+app.post("/api/groups/sync", (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids)) {
+      return res.status(400).json({ error: "IDs must be an array" });
+    }
+    const db = readGroupsDb();
+    const matchedGroups = db.filter(g => ids.includes(g.id));
+    res.json({ groups: matchedGroups });
+  } catch (error) {
+    console.error("Error syncing groups:", error);
+    res.status(500).json({ error: "Error al sincronizar grupos." });
+  }
+});
+
+// Create/Upload a new group to the server
+app.post("/api/groups", (req, res) => {
+  try {
+    const { group } = req.body;
+    if (!group || !group.id || !group.code) {
+      return res.status(400).json({ error: "Datos del grupo inválidos." });
+    }
+    const db = readGroupsDb();
+    const existingIndex = db.findIndex(g => g.id === group.id);
+    if (existingIndex > -1) {
+      db[existingIndex] = group;
+    } else {
+      db.push(group);
+    }
+    writeGroupsDb(db);
+    res.json({ success: true, group });
+  } catch (error) {
+    console.error("Error saving group on server:", error);
+    res.status(500).json({ error: "Error al guardar el grupo en el servidor." });
+  }
+});
+
+// Fetch active group status
+app.get("/api/groups/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = readGroupsDb();
+    const group = db.find(g => g.id === id);
+    if (!group) {
+      return res.status(404).json({ error: "Grupo no encontrado." });
+    }
+    res.json({ group });
+  } catch (error) {
+    console.error("Error fetching group:", error);
+    res.status(500).json({ error: "Error al obtener detalles del grupo." });
+  }
+});
+
+// Join group using 8-char code across different accounts/sessions
+app.post("/api/groups/join", (req, res) => {
+  try {
+    const { code, userName } = req.body;
+    if (!code || !userName) {
+      return res.status(400).json({ error: "Falta el código de invitación o el nombre de usuario." });
+    }
+    const formattedCode = code.trim().toUpperCase();
+    const db = readGroupsDb();
+    const groupIndex = db.findIndex(g => g.code === formattedCode);
+    if (groupIndex === -1) {
+      return res.status(404).json({ error: "No se encontró ningún grupo con ese código de invitación en la base de datos." });
+    }
+
+    const group = db[groupIndex];
+    if (!group.members.includes(userName)) {
+      group.members.push(userName);
+    }
+
+    db[groupIndex] = group;
+    writeGroupsDb(db);
+    res.json({ success: true, group });
+  } catch (error) {
+    console.error("Error joining group:", error);
+    res.status(500).json({ error: "Error de servidor al unirse al grupo." });
+  }
+});
+
+// Submit/Update dynamic individual response on a shared group
+app.post("/api/groups/:id/response", (req, res) => {
+  try {
+    const { id } = req.params;
+    const { response } = req.body;
+    if (!response || !response.member) {
+      return res.status(400).json({ error: "Preferencia inválida." });
+    }
+    const db = readGroupsDb();
+    const groupIndex = db.findIndex(g => g.id === id);
+    if (groupIndex === -1) {
+      return res.status(404).json({ error: "Grupo no encontrado." });
+    }
+
+    const group = db[groupIndex];
+    const respIndex = group.responses.findIndex((r: any) => r.member === response.member);
+    if (respIndex > -1) {
+      group.responses[respIndex] = response;
+    } else {
+      group.responses.push(response);
+    }
+
+    if (!group.members.includes(response.member)) {
+      group.members.push(response.member);
+    }
+
+    db[groupIndex] = group;
+    writeGroupsDb(db);
+    res.json({ success: true, group });
+  } catch (error) {
+    console.error("Error adding group preference response:", error);
+    res.status(500).json({ error: "Error al enviar la respuesta." });
+  }
+});
+
+// Delete group from database
+app.delete("/api/groups/:id", (req, res) => {
+  try {
+    const { id } = req.params;
+    const db = readGroupsDb();
+    const filteredDb = db.filter(g => g.id !== id);
+    writeGroupsDb(filteredDb);
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Error deleting group from server:", error);
+    res.status(500).json({ error: "Error al procesar eliminación del grupo." });
+  }
+});
 
 // API route first
 app.post("/api/recommendation", async (req, res) => {

@@ -19,7 +19,7 @@ interface GroupSidebarProps {
   activeGroupId: string | null;
   onSelectGroup: (id: string) => void;
   onCreateGroup: (name: string) => void;
-  onJoinGroup: (code: string) => string | null; // returns error message or null if successful
+  onJoinGroup: (code: string) => Promise<string | null>; // returns error message or null if successful
   currentUser: User;
   onLogout: () => void;
   showSidebarMobile: boolean;
@@ -57,19 +57,25 @@ export default function GroupSidebar({
     setErrorText(null);
   };
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!joinCode.trim()) return;
-    const error = onJoinGroup(joinCode.trim().toUpperCase());
-    if (error) {
-      setErrorText(error);
-      setSuccessText(null);
-    } else {
-      setSuccessText("¡Te has unido con éxito!");
-      setErrorText(null);
-      setJoinCode("");
-      setTimeout(() => setSuccessText(null), 3000);
-      setIsJoining(false);
+    setErrorText(null);
+    setSuccessText(null);
+    try {
+      const error = await onJoinGroup(joinCode.trim().toUpperCase());
+      if (error) {
+        setErrorText(error);
+        setSuccessText(null);
+      } else {
+        setSuccessText("¡Te has unido con éxito!");
+        setErrorText(null);
+        setJoinCode("");
+        setTimeout(() => setSuccessText(null), 3000);
+        setIsJoining(false);
+      }
+    } catch (err) {
+      setErrorText("Error al unirse al grupo.");
     }
   };
 
