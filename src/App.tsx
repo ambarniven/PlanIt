@@ -23,9 +23,9 @@ export default function App() {
     return stored ? JSON.parse(stored) : null;
   });
 
-  const [loginName, setLoginName] = useState("");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginZone, setLoginZone] = useState("Buenos Aires");
+  const [loginName, setLoginName] = useState(() => localStorage.getItem("planit_remembered_name") || "");
+  const [loginEmail, setLoginEmail] = useState(() => localStorage.getItem("planit_remembered_email") || "");
+  const [loginZone, setLoginZone] = useState(() => localStorage.getItem("planit_remembered_zone") || "Buenos Aires");
   const [loginPassword, setLoginPassword] = useState(""); // Demo password, any valid input accepted
   const [loginError, setLoginError] = useState("");
 
@@ -104,6 +104,46 @@ export default function App() {
     };
     syncWithServer();
   }, []);
+
+  // Sync groups of the logged in user from the server (both created groups and joined groups)
+  useEffect(() => {
+    if (!currentUser) return;
+    const fetchUserGroups = async () => {
+      try {
+        const res = await fetch(`/api/groups/user/${currentUser.id}/${encodeURIComponent(currentUser.name)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.groups && Array.isArray(data.groups)) {
+            setGroups(prev => {
+              const merged = [...prev];
+              data.groups.forEach((srvGroup: Group) => {
+                const idx = merged.findIndex(g => g.id === srvGroup.id);
+                if (idx > -1) {
+                  merged[idx] = srvGroup;
+                } else {
+                  merged.push(srvGroup);
+                }
+              });
+              return merged;
+            });
+            
+            // Set active group to the first fetched group if currently active group is not available
+            if (data.groups.length > 0) {
+              setActiveGroupId(prev => {
+                if (prev && data.groups.some((g: Group) => g.id === prev)) {
+                  return prev;
+                }
+                return data.groups[0].id;
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching user groups from server:", err);
+      }
+    };
+    fetchUserGroups();
+  }, [currentUser]);
 
   // Poll current active group periodically to reflect changes from other devices/accounts in real time
   useEffect(() => {
@@ -281,12 +321,20 @@ export default function App() {
       return;
     }
 
+    // Generate a stable, persistent user ID based on email so that the user is always recognized with the same ID across sessions
+    const stableId = "u_" + loginEmail.trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
+
     const newUser: User = {
-      id: "u_" + Date.now(),
+      id: stableId,
       name: loginName.trim(),
       email: loginEmail.trim().toLowerCase(),
       zone: loginZone
     };
+
+    // Store remembered fields for future logins
+    localStorage.setItem("planit_remembered_name", loginName.trim());
+    localStorage.setItem("planit_remembered_email", loginEmail.trim().toLowerCase());
+    localStorage.setItem("planit_remembered_zone", loginZone);
 
     setCurrentUser(newUser);
 

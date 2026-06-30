@@ -107,6 +107,19 @@ app.get("/api/groups/:id", (req, res) => {
   }
 });
 
+// Fetch all groups for a user by creator userId or member userName
+app.get("/api/groups/user/:userId/:userName", (req, res) => {
+  try {
+    const { userId, userName } = req.params;
+    const db = readGroupsDb();
+    const userGroups = db.filter(g => g.creator === userId || g.members.includes(userName));
+    res.json({ groups: userGroups });
+  } catch (error) {
+    console.error("Error fetching user groups:", error);
+    res.status(500).json({ error: "Error al obtener los grupos del usuario." });
+  }
+});
+
 // Join group using 8-char code across different accounts/sessions
 app.post("/api/groups/join", (req, res) => {
   try {
