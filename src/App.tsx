@@ -67,43 +67,7 @@ export default function App() {
     localStorage.setItem("planit_groups", JSON.stringify(groups));
   }, [groups]);
 
-  // Sync groups with the server on first load to retrieve other people's edits & groups
-  useEffect(() => {
-    const syncWithServer = async () => {
-      const localGroups = localStorage.getItem("planit_groups");
-      if (!localGroups) return;
-      try {
-        const parsed = JSON.parse(localGroups);
-        if (!Array.isArray(parsed) || parsed.length === 0) return;
-        const ids = parsed.map((g: Group) => g.id);
-        const res = await fetch("/api/groups/sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ids })
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.groups && data.groups.length > 0) {
-            setGroups(prev => {
-              const merged = [...prev];
-              data.groups.forEach((srvGroup: Group) => {
-                const idx = merged.findIndex(g => g.id === srvGroup.id);
-                if (idx > -1) {
-                  merged[idx] = srvGroup;
-                } else {
-                  merged.push(srvGroup);
-                }
-              });
-              return merged;
-            });
-          }
-        }
-      } catch (err) {
-        console.error("Error syncing with server on load:", err);
-      }
-    };
-    syncWithServer();
-  }, []);
+
 
   // Sync groups of the logged in user from the server (both created groups and joined groups)
   useEffect(() => {
@@ -114,18 +78,7 @@ export default function App() {
         if (res.ok) {
           const data = await res.json();
           if (data.groups && Array.isArray(data.groups)) {
-            setGroups(prev => {
-              const merged = [...prev];
-              data.groups.forEach((srvGroup: Group) => {
-                const idx = merged.findIndex(g => g.id === srvGroup.id);
-                if (idx > -1) {
-                  merged[idx] = srvGroup;
-                } else {
-                  merged.push(srvGroup);
-                }
-              });
-              return merged;
-            });
+            setGroups(data.groups);
             
             // Set active group to the first fetched group if currently active group is not available
             if (data.groups.length > 0) {
@@ -308,7 +261,7 @@ export default function App() {
   }, [activeGroupId, activeGroup?.responses.length]);
 
   // ---- 4. HANDLERS AND FUNCTIONS ----
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginError("");
 
@@ -320,33 +273,50 @@ export default function App() {
       setLoginError("Introduce un dirección de correo válida.");
       return;
     }
+    if (!loginPassword.trim()) {
+      setLoginError("Por favor, introduce tu contraseña.");
+      return;
+    }
 
-    // Generate a stable, persistent user ID based on email so that the user is always recognized with the same ID across sessions
-    const stableId = "u_" + loginEmail.trim().toLowerCase().replace(/[^a-z0-9]/g, "_");
+    try {
+      const res = await fetch("/api/users/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: loginName.trim(),
+          email: loginEmail.trim().toLowerCase(),
+          password: loginPassword.trim(),
+          zone: loginZone
+        })
+      });
 
-    const newUser: User = {
-      id: stableId,
-      name: loginName.trim(),
-      email: loginEmail.trim().toLowerCase(),
-      zone: loginZone
-    };
+      const data = await res.json();
+      if (!res.ok) {
+        setLoginError(data.error || "Error al iniciar sesión.");
+        return;
+      }
 
-    // Store remembered fields for future logins
-    localStorage.setItem("planit_remembered_name", loginName.trim());
-    localStorage.setItem("planit_remembered_email", loginEmail.trim().toLowerCase());
-    localStorage.setItem("planit_remembered_zone", loginZone);
+      const verifiedUser: User = data.user;
 
-    setCurrentUser(newUser);
+      // Store remembered fields for future logins
+      localStorage.setItem("planit_remembered_name", verifiedUser.name);
+      localStorage.setItem("planit_remembered_email", verifiedUser.email);
+      localStorage.setItem("planit_remembered_zone", verifiedUser.zone);
 
-    // Automatically check if user name joins existing groups of mock data as a member
-    // If not, we can automatically add their name to the active group members on first login!
-    // To keep it clean, let's make sure that when a user logs in, they are either creator or member.
+      setCurrentUser(verifiedUser);
+    } catch (err) {
+      console.error("Error logging in:", err);
+      setLoginError("No se pudo conectar con el servidor.");
+    }
   };
 
   const handleLogout = () => {
     setCurrentUser(null);
+    setGroups([]);
+    setActiveGroupId(null);
     localStorage.removeItem("planit_user");
-    // Preserve groups & recommendations in localStorage so other tabs/reloads can see them
+    localStorage.removeItem("planit_groups");
+    localStorage.removeItem("planit_last_active_group_id");
   };
 
   const handleCreateGroup = async (name: string) => {

@@ -120,6 +120,72 @@ app.get("/api/groups/user/:userId/:userName", (req, res) => {
   }
 });
 
+// User verification / registration endpoint
+const USERS_FILE = path.join(process.cwd(), "users-db.json");
+
+function readUsersDb(): any[] {
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, "utf-8");
+      return JSON.parse(content);
+    }
+  } catch (error) {
+    console.error("Error reading users db:", error);
+  }
+  return [];
+}
+
+function writeUsersDb(users: any[]) {
+  try {
+    fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf-8");
+  } catch (error) {
+    console.error("Error writing users db:", error);
+  }
+}
+
+app.post("/api/users/login", (req, res) => {
+  try {
+    const { email, name, password, zone } = req.body;
+    if (!email || !name || !password) {
+      return res.status(400).json({ error: "Faltan datos de inicio de sesión." });
+    }
+
+    const formattedEmail = email.trim().toLowerCase();
+    const formattedName = name.trim();
+    const formattedPassword = password.trim();
+
+    const users = readUsersDb();
+    const existingUser = users.find(u => u.email === formattedEmail);
+
+    if (existingUser) {
+      // Check if name and password match
+      if (existingUser.password !== formattedPassword) {
+        return res.status(401).json({ error: "La contraseña es incorrecta para este correo." });
+      }
+      if (existingUser.name !== formattedName) {
+        return res.status(401).json({ error: `El nombre "${formattedName}" no coincide con el nombre registrado para este correo.` });
+      }
+      return res.json({ success: true, user: existingUser });
+    } else {
+      // Create user
+      const stableId = "u_" + formattedEmail.replace(/[^a-z0-9]/g, "_");
+      const newUser = {
+        id: stableId,
+        name: formattedName,
+        email: formattedEmail,
+        password: formattedPassword,
+        zone: zone || "Buenos Aires"
+      };
+      users.push(newUser);
+      writeUsersDb(users);
+      return res.json({ success: true, user: newUser });
+    }
+  } catch (error) {
+    console.error("Error in user login API:", error);
+    res.status(500).json({ error: "Error en el servidor al procesar la cuenta." });
+  }
+});
+
 // Join group using 8-char code across different accounts/sessions
 app.post("/api/groups/join", (req, res) => {
   try {
